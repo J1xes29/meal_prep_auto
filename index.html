@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meal Planner Pro</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #f4fbf7, #eef6ff);
+            color: #1f2937;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            display: grid;
+            gap: 24px;
+        }
+        .topbar {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(180px, 1fr));
+            gap: 16px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+        }
+        .stat-card .label {
+            color: #64748b;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #111827;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1.05fr 1.5fr;
+            gap: 24px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+        h2, h3 {
+            margin-top: 0;
+        }
+        .form-grid {
+            display: grid;
+            gap: 14px;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #d3dbe5;
+            font-size: 14px;
+        }
+        button {
+            cursor: pointer;
+            border: none;
+            font-weight: 700;
+            transition: 0.2s ease;
+        }
+        .primary-btn {
+            background: #1f9d6a;
+            color: white;
+        }
+        .primary-btn:hover { background: #17845d; }
+        .secondary-btn {
+            background: #eaf3ff;
+            color: #234d89;
+        }
+        .secondary-btn:hover { background: #dfeeff; }
+        .danger-btn {
+            background: #ffe5e9;
+            color: #b42318;
+        }
+        .danger-btn:hover { background: #ffd5dc; }
+        .option-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 18px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        .option-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #ebeff5;
+        }
+        .option-item strong {
+            display: block;
+            margin-bottom: 3px;
+        }
+        .meta {
+            color: #5b6b7a;
+            font-size: 12px;
+        }
+        .option-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .mini-btn {
+            border: none;
+            background: #ffeeef;
+            color: #b42318;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .planner-grid {
+            display: grid;
+            gap: 18px;
+        }
+        .day-selector {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .day-selector select {
+            flex: 1;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(120px, 1fr));
+            gap: 12px;
+        }
+        .day-summary {
+            border: 1px solid #e5ebf3;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .day-summary strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .selected-list {
+            display: grid;
+            gap: 10px;
+        }
+        .selected-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #f6f9ff;
+            border: 1px solid #dfe9f5;
+        }
+        .total-box {
+            margin-top: 8px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: #eefaf5;
+            font-weight: 700;
+            color: #176a4c;
+        }
+        .empty-state {
+            color: #607085;
+            font-style: italic;
+        }
+        @media (max-width: 980px) {
+            .topbar, .main-grid, .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar" id="topbar"></div>
+
+        <div class="main-grid">
+            <div class="card">
+                <h2>🍱 Database Menu</h2>
+                <div class="form-grid">
+                    <div>
+                        <label for="option_name">Nama Menu</label>
+                        <input id="option_name" type="text" placeholder="Contoh: Dada Ayam & Brokoli" />
+                    </div>
+                    <div>
+                        <label for="option_category">Kategori</label>
+                        <select id="option_category">
+                            <option value="Protein">Protein</option>
+                            <option value="Karbohidrat">Karbohidrat</option>
+                            <option value="Sayur">Sayur</option>
+                            <option value="Camilan">Camilan</option>
+                            <option value="Minuman">Minuman</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="option_calories">Kalori</label>
+                        <input id="option_calories" type="number" placeholder="Contoh: 480" />
+                    </div>
+                    <button class="primary-btn" onclick="addOption()">Tambah Menu ke Database</button>
+                </div>
+
+                <div id="option_list" class="option-list"></div>
+            </div>
+
+            <div class="card">
+                <h2>📅 Planner Harian</h2>
+                <div class="planner-grid">
+                    <div class="day-selector">
+                        <select id="day_select">
+                            <option value="Senin">Senin</option>
+                            <option value="Selasa">Selasa</option>
+                            <option value="Rabu">Rabu</option>
+                            <option value="Kamis">Kamis</option>
+                            <option value="Jumat">Jumat</option>
+                            <option value="Sabtu">Sabtu</option>
+                            <option value="Minggu">Minggu</option>
+                        </select>
+                        <button class="secondary-btn" onclick="loadDailyPlan()">Pilih Hari</button>
+                    </div>
+
+                    <div id="menu_checklist" class="option-list"></div>
+
+                    <div>
+                        <button class="primary-btn" onclick="saveDailyPlan()">Simpan Jadwal Hari Ini</button>
+                    </div>
+
+                    <div>
+                        <button class="danger-btn" onclick="clearDailyPlan()">Hapus Jadwal Hari Ini</button>
+                    </div>
+
+                    <div id="selected_plan" class="selected-list"></div>
+                    <div id="total_box" class="total-box">Total Kalori: 0 kcal</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📊 Ringkasan Mingguan</h3>
+            <div id="weekly_summary" class="summary-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        const daySelect = document.getElementById('day_select');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOptions();
+            loadDailyPlan();
+            loadSummary();
+        });
+
+        function loadOptions() {
+            fetch('/api/options')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('option_list');
+                    list.innerHTML = '';
+
+                    if (!data.length) {
+                        list.innerHTML = '<div class="empty-state">Belum ada menu tersimpan.</div>';
+                        return;
+                    }
+
+                    data.forEach(option => {
+                        const item = document.createElement('div');
+                        item.className = 'option-item';
+                        item.innerHTML = `
+                            <div>
+                                <strong>${option.name}</strong>
+                                <div class="meta">${option.category} • ${option.calories} kcal</div>
+                            </div>
+                            <div class="option-actions">
+                                <button class="mini-btn" title="Hapus menu" onclick="deleteOption(${option.id})">×</button>
+                            </div>
+                        `;
+                        list.appendChild(item);
+                    });
+
+                    loadDailyPlan();
+                })
+                .catch(() => {
+                    document.getElementById('option_list').innerHTML = '<div class="empty-state">Gagal memuat menu.</div>';
+                });
+        }
+
+        function loadDailyPlan() {
+            const day = daySelect.value;
+            fetch(`/api/daily-plan?day=${encodeURIComponent(day)}`)
+                .then(response => response.json())
+                .then(data => {
+                    renderMenuChecklist(data);
+                    renderSelectedPlan(data);
+                })
+                .catch(() => {
+                    renderMenuChecklist([]);
+                    renderSelectedPlan([]);
+                });
+        }
+
+        function renderMenuChecklist(selectedItems = []) {
+            const selectedIds = new Set(selectedItems.map(item => item.option_id));
+            fetch('/api/options')
+                .then(response => response.json())
+                .then(options => {
+                    const list = document.getElementById('menu_checklist');
+                    list.innerHTML = '';
+
+                    if (!options.length) {
+                        list.innerHTML = '<div class="empty-state">Tambahkan menu dulu di database.</div>';
+                        return;
+                    }
+
+                    options.forEach(option => {
+                        const wrapper = document.createElement('label');
+                        wrapper.className = 'option-item';
+                        wrapper.innerHTML = `
+                            <div>
+                                <strong>${option.name}</strong>
+                                <div class="meta">${option.category} • ${option.calories} kcal</div>
+                            </div>
+                            <input type="checkbox" value="${option.id}" ${selectedIds.has(option.id) ? 'checked' : ''} />
+                        `;
+                        list.appendChild(wrapper);
+                    });
+                });
+        }
+
+        function renderSelectedPlan(items) {
+            const container = document.getElementById('selected_plan');
+            container.innerHTML = '';
+
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-state">Belum ada menu yang dipilih untuk hari ini.</div>';
+                document.getElementById('total_box').textContent = 'Total Kalori: 0 kcal';
+                return;
+            }
+
+            let total = 0;
+            items.forEach(item => {
+                total += Number(item.calories || 0);
+                const node = document.createElement('div');
+                node.className = 'selected-item';
+                node.innerHTML = `
+                    <span>${item.name}</span>
+                    <strong>${item.calories} kcal</strong>
+                `;
+                container.appendChild(node);
+            });
+
+            document.getElementById('total_box').textContent = `Total Kalori: ${total} kcal`;
+        }
+
+        function addOption() {
+            const name = document.getElementById('option_name').value.trim();
+            const category = document.getElementById('option_category').value.trim();
+            const calories = document.getElementById('option_calories').value;
+
+            if (!name || !calories) {
+                alert('Nama menu dan kalori wajib diisi!');
+                return;
+            }
+
+            fetch('/api/options', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category, calories: Number(calories) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('option_name').value = '';
+                document.getElementById('option_calories').value = '';
+                alert(data.message || 'Menu berhasil ditambahkan');
+                loadOptions();
+                loadSummary();
+            })
+            .catch(() => alert('Gagal menambahkan menu.'));
+        }
+
+        function deleteOption(optionId) {
+            if (!confirm('Yakin ingin menghapus menu ini?')) return;
+
+            fetch(`/api/options/${optionId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Menu dihapus');
+                loadOptions();
+                loadDailyPlan();
+                loadSummary();
+            })
+            .catch(() => alert('Gagal menghapus menu.'));
+        }
+
+        function saveDailyPlan() {
+            const day = daySelect.value;
+            const checked = [...document.querySelectorAll('#menu_checklist input:checked')];
+            const optionIds = checked.map(item => Number(item.value));
+
+            fetch('/api/daily-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ day, option_ids: optionIds })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Jadwal harian berhasil disimpan');
+                loadDailyPlan();
+                loadSummary();
+            })
+            .catch(() => alert('Gagal menyimpan jadwal harian.'));
+        }
+
+        function clearDailyPlan() {
+            const day = daySelect.value;
+            fetch('/api/daily-plan', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ day })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Jadwal dihapus');
+                loadDailyPlan();
+                loadSummary();
+            })
+            .catch(() => alert('Gagal menghapus jadwal harian.'));
+        }
+
+        function loadSummary() {
+            fetch('/api/summary')
+                .then(response => response.json())
+                .then(data => {
+                    renderTopbar(data);
+                    renderWeeklySummary(data.daily_totals);
+                })
+                .catch(() => {
+                    document.getElementById('topbar').innerHTML = '';
+                    document.getElementById('weekly_summary').innerHTML = '<div class="empty-state">Gagal memuat ringkasan mingguan.</div>';
+                });
+        }
+
+        function renderTopbar(data) {
+            const topbar = document.getElementById('topbar');
+            topbar.innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Menu</div>
+                    <div class="value">${data.menu_count}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Mingguan</div>
+                    <div class="value">${data.weekly_total} kcal</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Kategori</div>
+                    <div class="value">${data.categories.length}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Hari Aktif</div>
+                    <div class="value">${data.daily_totals.filter(item => item.count > 0).length}</div>
+                </div>
+            `;
+        }
+
+        function renderWeeklySummary(dailyTotals) {
+            const summary = document.getElementById('weekly_summary');
+            summary.innerHTML = '';
+
+            dailyTotals.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'day-summary';
+                card.innerHTML = `
+                    <strong>${item.day}</strong>
+                    <div>${item.count} menu</div>
+                    <div>${item.total_calories} kcal</div>
+                `;
+                summary.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
