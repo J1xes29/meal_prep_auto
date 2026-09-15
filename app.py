@@ -42,6 +42,30 @@ def day_from_date(date_value):
         return ''
 
 
+def normalize_day_name(day_value):
+    day = (day_value or '').strip()
+    if not day:
+        return ''
+
+    mapping = {
+        'Monday': 'Senin',
+        'Tuesday': 'Selasa',
+        'Wednesday': 'Rabu',
+        'Thursday': 'Kamis',
+        'Friday': 'Jumat',
+        'Saturday': 'Sabtu',
+        'Sunday': 'Minggu',
+        'Senin': 'Senin',
+        'Selasa': 'Selasa',
+        'Rabu': 'Rabu',
+        'Kamis': 'Kamis',
+        'Jumat': 'Jumat',
+        'Sabtu': 'Sabtu',
+        'Minggu': 'Minggu'
+    }
+    return mapping.get(day, day)
+
+
 def init_db():
     conn = get_db_connection()
     conn.execute('''
@@ -49,6 +73,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             calories INTEGER NOT NULL,
+            protein INTEGER NOT NULL DEFAULT 0,
             category TEXT NOT NULL DEFAULT 'Umum'
         )
     ''')
@@ -66,6 +91,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             calories INTEGER NOT NULL,
+            protein INTEGER NOT NULL DEFAULT 0,
             category TEXT NOT NULL DEFAULT 'Umum',
             portion TEXT NOT NULL DEFAULT '1 porsi'
         )
@@ -75,32 +101,40 @@ def init_db():
     if 'date' not in columns:
         conn.execute('ALTER TABLE daily_plan ADD COLUMN date TEXT DEFAULT ""')
 
+    meal_columns = [row['name'] for row in conn.execute('PRAGMA table_info(meal_options)').fetchall()]
+    if 'protein' not in meal_columns:
+        conn.execute('ALTER TABLE meal_options ADD COLUMN protein INTEGER NOT NULL DEFAULT 0')
+
+    food_columns = [row['name'] for row in conn.execute('PRAGMA table_info(food_reference)').fetchall()]
+    if 'protein' not in food_columns:
+        conn.execute('ALTER TABLE food_reference ADD COLUMN protein INTEGER NOT NULL DEFAULT 0')
+
     existing = conn.execute('SELECT COUNT(*) AS total FROM food_reference').fetchone()['total']
     if existing == 0:
         sample_foods = [
-            ('Ayam Goreng', 250, 'Protein', '1 porsi'),
-            ('Ayam Bakar', 220, 'Protein', '1 porsi'),
-            ('Dada Ayam', 165, 'Protein', '100 g'),
-            ('Nasi Putih', 200, 'Karbohidrat', '1 piring'),
-            ('Nasi Uduk', 420, 'Karbohidrat', '1 porsi'),
-            ('Kentang Rebus', 130, 'Karbohidrat', '150 g'),
-            ('Tempe Goreng', 190, 'Protein', '1 potong'),
-            ('Tahu', 80, 'Protein', '1 potong'),
-            ('Sayur Bayam', 40, 'Sayur', '1 porsi'),
-            ('Brokoli Rebus', 55, 'Sayur', '1 porsi'),
-            ('Alpukat', 160, 'Sayur', '1 buah'),
-            ('Buah Pisang', 105, 'Buah', '1 buah'),
-            ('Apel', 95, 'Buah', '1 buah'),
-            ('Telur Rebus', 78, 'Protein', '1 butir'),
-            ('Telur Orak-Arik', 120, 'Protein', '1 porsi'),
-            ('Minyak Goreng', 120, 'Lainnya', '1 sdm'),
-            ('Mie Goreng', 330, 'Karbohidrat', '1 porsi'),
-            ('Oatmeal', 150, 'Karbohidrat', '1 mangkuk'),
-            ('Greek Yogurt', 130, 'Protein', '1 cup'),
-            ('Smoothie Pisang', 220, 'Minuman', '1 gelas'),
+            ('Ayam Goreng', 250, 30, 'Protein', '1 porsi'),
+            ('Ayam Bakar', 220, 28, 'Protein', '1 porsi'),
+            ('Dada Ayam', 165, 31, 'Protein', '100 g'),
+            ('Nasi Putih', 200, 4, 'Karbohidrat', '1 piring'),
+            ('Nasi Uduk', 420, 12, 'Karbohidrat', '1 porsi'),
+            ('Kentang Rebus', 130, 3, 'Karbohidrat', '150 g'),
+            ('Tempe Goreng', 190, 18, 'Protein', '1 potong'),
+            ('Tahu', 80, 8, 'Protein', '1 potong'),
+            ('Sayur Bayam', 40, 3, 'Sayur', '1 porsi'),
+            ('Brokoli Rebus', 55, 4, 'Sayur', '1 porsi'),
+            ('Alpukat', 160, 2, 'Sayur', '1 buah'),
+            ('Buah Pisang', 105, 1, 'Buah', '1 buah'),
+            ('Apel', 95, 0, 'Buah', '1 buah'),
+            ('Telur Rebus', 78, 6, 'Protein', '1 butir'),
+            ('Telur Orak-Arik', 120, 8, 'Protein', '1 porsi'),
+            ('Minyak Goreng', 120, 0, 'Lainnya', '1 sdm'),
+            ('Mie Goreng', 330, 10, 'Karbohidrat', '1 porsi'),
+            ('Oatmeal', 150, 5, 'Karbohidrat', '1 mangkuk'),
+            ('Greek Yogurt', 130, 17, 'Protein', '1 cup'),
+            ('Smoothie Pisang', 220, 4, 'Minuman', '1 gelas'),
         ]
         conn.executemany(
-            'INSERT INTO food_reference (name, calories, category, portion) VALUES (?, ?, ?, ?)',
+            'INSERT INTO food_reference (name, calories, protein, category, portion) VALUES (?, ?, ?, ?, ?)',
             sample_foods
         )
 
@@ -125,6 +159,7 @@ def manage_options():
         name = (data.get('name') or '').strip()
         category = (data.get('category') or 'Umum').strip() or 'Umum'
         calories = data.get('calories')
+        protein = data.get('protein', 0)
 
         if not name or calories is None:
             conn.close()
@@ -132,13 +167,14 @@ def manage_options():
 
         try:
             calories = int(calories)
+            protein = int(protein)
         except (TypeError, ValueError):
             conn.close()
-            return jsonify({'status': 'error', 'message': 'Kalori harus berupa angka!'}), 400
+            return jsonify({'status': 'error', 'message': 'Kalori dan protein harus berupa angka!'}), 400
 
         cursor = conn.execute(
-            'INSERT INTO meal_options (name, calories, category) VALUES (?, ?, ?)',
-            (name, calories, category)
+            'INSERT INTO meal_options (name, calories, protein, category) VALUES (?, ?, ?, ?)',
+            (name, calories, protein, category)
         )
         conn.commit()
         option = conn.execute('SELECT * FROM meal_options WHERE id = ?', (cursor.lastrowid,)).fetchone()
@@ -164,40 +200,22 @@ def delete_option(option_id):
     return jsonify({'status': 'success', 'message': 'Menu berhasil dihapus!'})
 
 
-@app.route('/api/daily-plan', methods=['GET', 'POST', 'DELETE'])
+@app.route('/api/daily-plan', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def manage_daily_plan():
     conn = get_db_connection()
 
-    if request.method == 'POST':
-        data = request.get_json(silent=True) or {}
-        day = (data.get('day') or '').strip()
-        date = normalize_date(data.get('date'))
-        option_ids = data.get('option_ids') or []
+    def save_plan(day_value, date_value, option_ids):
+        normalized_day = normalize_day_name(day_value)
+        normalized_date = normalize_date(date_value)
 
-        if not day and not date:
-            conn.close()
-            return jsonify({'status': 'error', 'message': 'Hari atau tanggal wajib dipilih!'}), 400
+        if not normalized_date:
+            raise ValueError('Tanggal wajib dipilih!')
+
+        if normalized_date and not normalized_day:
+            normalized_day = normalize_day_name(day_from_date(normalized_date))
 
         if not isinstance(option_ids, list):
-            conn.close()
-            return jsonify({'status': 'error', 'message': 'Pilihan menu harus berupa daftar!'}), 400
-
-        if date and not day:
-            day = day_from_date(date)
-            if day == 'Monday':
-                day = 'Senin'
-            elif day == 'Tuesday':
-                day = 'Selasa'
-            elif day == 'Wednesday':
-                day = 'Rabu'
-            elif day == 'Thursday':
-                day = 'Kamis'
-            elif day == 'Friday':
-                day = 'Jumat'
-            elif day == 'Saturday':
-                day = 'Sabtu'
-            elif day == 'Sunday':
-                day = 'Minggu'
+            raise ValueError('Pilihan menu harus berupa daftar!')
 
         cleaned_ids = []
         for option_id in option_ids:
@@ -206,18 +224,17 @@ def manage_daily_plan():
             except (TypeError, ValueError):
                 continue
 
-        if date:
-            conn.execute('DELETE FROM daily_plan WHERE date = ?', (date,))
-        elif day:
-            conn.execute('DELETE FROM daily_plan WHERE day = ?', (day,))
+        if normalized_date:
+            conn.execute('DELETE FROM daily_plan WHERE date = ?', (normalized_date,))
+        elif normalized_day:
+            conn.execute('DELETE FROM daily_plan WHERE day = ?', (normalized_day,))
 
         for option_id in cleaned_ids:
             conn.execute(
                 'INSERT INTO daily_plan (day, date, option_id) VALUES (?, ?, ?)',
-                (day or '', date or '', option_id)
+                (normalized_day or '', normalized_date or '', option_id)
             )
 
-        conn.commit()
         query = '''
             SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.category
             FROM daily_plan dp
@@ -225,38 +242,50 @@ def manage_daily_plan():
             WHERE dp.date = ? OR dp.day = ?
             ORDER BY mo.name
         '''
-        plan_rows = conn.execute(query, (date or '', day or '')).fetchall() if date else conn.execute('''
+        if normalized_date:
+            return conn.execute(query, (normalized_date, normalized_day or '')).fetchall()
+        return conn.execute('''
             SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.category
             FROM daily_plan dp
             JOIN meal_options mo ON mo.id = dp.option_id
             WHERE dp.day = ?
             ORDER BY mo.name
-        ''', (day,)).fetchall()
-        conn.close()
-        return jsonify({'status': 'success', 'message': 'Jadwal harian berhasil disimpan!', 'items': [dict(row) for row in plan_rows]}), 201
+        ''', (normalized_day,)).fetchall()
+
+    if request.method in ('POST', 'PUT'):
+        data = request.get_json(silent=True) or {}
+        day = (data.get('day') or '').strip()
+        date = normalize_date(data.get('date'))
+        option_ids = data.get('option_ids') or []
+
+        try:
+            plan_rows = save_plan(day, date, option_ids)
+            conn.commit()
+            conn.close()
+            return jsonify({'status': 'success', 'message': 'Jadwal harian berhasil disimpan!', 'items': [dict(row) for row in plan_rows]}), (201 if request.method == 'POST' else 200)
+        except ValueError as exc:
+            conn.close()
+            return jsonify({'status': 'error', 'message': str(exc)}), 400
 
     if request.method == 'DELETE':
         data = request.get_json(silent=True) or {}
         day = (data.get('day') or '').strip()
         date = normalize_date(data.get('date'))
-        if not day and not date:
+        if not date:
             conn.close()
-            return jsonify({'status': 'error', 'message': 'Hari atau tanggal wajib dipilih!'}), 400
+            return jsonify({'status': 'error', 'message': 'Tanggal wajib dipilih!'}), 400
 
-        if date:
-            conn.execute('DELETE FROM daily_plan WHERE date = ?', (date,))
-        else:
-            conn.execute('DELETE FROM daily_plan WHERE day = ?', (day,))
+        conn.execute('DELETE FROM daily_plan WHERE date = ?', (date,))
         conn.commit()
         conn.close()
-        return jsonify({'status': 'success', 'message': f'Jadwal {date or day} berhasil dihapus!'})
+        return jsonify({'status': 'success', 'message': f'Jadwal {date or normalize_day_name(day)} berhasil dihapus!'})
 
     date = normalize_date(request.args.get('date', '').strip())
-    day = request.args.get('day', '').strip()
+    day = normalize_day_name(request.args.get('day', '').strip())
 
     if date:
         plan_rows = conn.execute('''
-            SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.category
+            SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.protein, mo.category
             FROM daily_plan dp
             JOIN meal_options mo ON mo.id = dp.option_id
             WHERE dp.date = ?
@@ -264,7 +293,7 @@ def manage_daily_plan():
         ''', (date,)).fetchall()
     elif day:
         plan_rows = conn.execute('''
-            SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.category
+            SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.protein, mo.category
             FROM daily_plan dp
             JOIN meal_options mo ON mo.id = dp.option_id
             WHERE dp.day = ?
@@ -272,7 +301,7 @@ def manage_daily_plan():
         ''', (day,)).fetchall()
     else:
         plan_rows = conn.execute('''
-            SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.category
+            SELECT dp.id, dp.day, dp.date, mo.id AS option_id, mo.name, mo.calories, mo.protein, mo.category
             FROM daily_plan dp
             JOIN meal_options mo ON mo.id = dp.option_id
             ORDER BY dp.date DESC, dp.day, mo.name
@@ -292,6 +321,7 @@ def get_history():
             dp.day,
             GROUP_CONCAT(mo.name, ' | ') AS menu_names,
             SUM(mo.calories) AS total_calories,
+            SUM(mo.protein) AS total_protein,
             COUNT(mo.id) AS item_count
         FROM daily_plan dp
         JOIN meal_options mo ON mo.id = dp.option_id
@@ -307,6 +337,7 @@ def get_history():
             'day': row['day'],
             'menu_names': row['menu_names'],
             'total_calories': int(row['total_calories'] or 0),
+            'total_protein': int(row['total_protein'] or 0),
             'item_count': int(row['item_count'] or 0)
         }
         for row in history_rows
@@ -320,7 +351,7 @@ def get_food_reference():
 
     if query:
         rows = conn.execute('''
-            SELECT id, name, calories, category, portion
+            SELECT id, name, calories, protein, category, portion
             FROM food_reference
             WHERE LOWER(name) LIKE ? OR LOWER(category) LIKE ?
             ORDER BY CASE
@@ -330,7 +361,7 @@ def get_food_reference():
             LIMIT 10
         ''', (f'%{query.lower()}%', f'%{query.lower()}%', f'{query.lower()}%')).fetchall()
     else:
-        rows = conn.execute('SELECT id, name, calories, category, portion FROM food_reference ORDER BY name LIMIT 10').fetchall()
+        rows = conn.execute('SELECT id, name, calories, protein, category, portion FROM food_reference ORDER BY name LIMIT 10').fetchall()
 
     conn.close()
     return jsonify([
@@ -338,6 +369,7 @@ def get_food_reference():
             'id': row['id'],
             'name': row['name'],
             'calories': row['calories'],
+            'protein': row['protein'],
             'category': row['category'],
             'portion': row['portion']
         }
@@ -351,24 +383,28 @@ def get_summary():
     menu_count = conn.execute('SELECT COUNT(*) AS total FROM meal_options').fetchone()['total']
     daily_totals = []
     weekly_total = 0
+    weekly_protein = 0
 
     for day in DAYS:
         rows = conn.execute('''
-            SELECT SUM(mo.calories) AS total_calories, COUNT(*) AS count
+            SELECT SUM(mo.calories) AS total_calories, SUM(mo.protein) AS total_protein, COUNT(*) AS count
             FROM daily_plan dp
             JOIN meal_options mo ON mo.id = dp.option_id
             WHERE dp.day = ?
         ''', (day,)).fetchone()
         total_calories = rows['total_calories'] or 0
+        total_protein = rows['total_protein'] or 0
         count = rows['count'] or 0
-        daily_totals.append({'day': day, 'total_calories': int(total_calories), 'count': int(count)})
+        daily_totals.append({'day': day, 'total_calories': int(total_calories), 'total_protein': int(total_protein), 'count': int(count)})
         weekly_total += int(total_calories)
+        weekly_protein += int(total_protein)
 
     categories = conn.execute('SELECT category, COUNT(*) AS count FROM meal_options GROUP BY category ORDER BY category').fetchall()
     conn.close()
     return jsonify({
         'menu_count': menu_count,
         'weekly_total': weekly_total,
+        'weekly_protein': weekly_protein,
         'categories': [dict(row) for row in categories],
         'daily_totals': daily_totals
     })

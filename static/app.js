@@ -6,6 +6,27 @@ const addOptionBtn = document.getElementById('add_option_btn');
 const optionFilter = document.getElementById('option_filter');
 const optionFilterBtn = document.getElementById('option_filter_btn');
 const foodSearchBtn = document.getElementById('food_search_btn');
+const editPlanBtn = document.getElementById('edit_plan_btn');
+const planModal = document.getElementById('plan_modal');
+const closePlanModalBtn = document.getElementById('close_plan_modal');
+const closePlanModalSecondaryBtn = document.getElementById('close_plan_modal_btn');
+const savePlanModalBtn = document.getElementById('save_plan_modal_btn');
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast_container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 2600);
+}
+
+function showPrompt(message, type = 'success') {
+    showToast(message, type);
+}
 
 function setTodayDate() {
     if (!dateSelect) return;
@@ -102,7 +123,7 @@ function renderMenuChecklist(selectedItems = []) {
                 wrapper.innerHTML = `
                     <div>
                         <strong>${option.name}</strong>
-                        <div class="meta">${option.category} • ${option.calories} kcal</div>
+                        <div class="meta">${option.category} • ${option.calories} kcal • ${option.protein ?? 0} g protein</div>
                     </div>
                     <input type="checkbox" value="${option.id}" ${selectedIds.has(option.id) ? 'checked' : ''} />
                 `;
@@ -117,65 +138,75 @@ function renderSelectedPlan(items) {
 
     if (!items.length) {
         container.innerHTML = '<div class="empty-state">Belum ada menu yang dipilih untuk hari ini.</div>';
-        document.getElementById('total_box').textContent = 'Total Kalori: 0 kcal';
+        document.getElementById('total_box').textContent = 'Total Kalori: 0 kcal • Protein: 0 g';
         return;
     }
 
-    let total = 0;
+    let totalCalories = 0;
+    let totalProtein = 0;
     items.forEach(item => {
-        total += Number(item.calories || 0);
+        totalCalories += Number(item.calories || 0);
+        totalProtein += Number(item.protein || 0);
         const node = document.createElement('div');
         node.className = 'selected-item';
         node.innerHTML = `
             <span>${item.name}</span>
-            <strong>${item.calories} kcal</strong>
+            <strong>${item.calories} kcal • ${item.protein ?? 0} g protein</strong>
         `;
         container.appendChild(node);
     });
 
-    document.getElementById('total_box').textContent = `Total Kalori: ${total} kcal`;
+    document.getElementById('total_box').textContent = `Total Kalori: ${totalCalories} kcal • Protein: ${totalProtein} g`;
 }
 
 function addOption() {
     const name = document.getElementById('option_name').value.trim();
     const category = document.getElementById('option_category').value.trim();
     const calories = document.getElementById('option_calories').value;
+    const protein = document.getElementById('option_protein').value;
 
     if (!name || !calories) {
-        alert('Nama menu dan kalori wajib diisi!');
+        showPrompt('Nama menu dan kalori wajib diisi!', 'error');
         return;
     }
 
     fetch('/api/options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, category, calories: Number(calories) })
+        body: JSON.stringify({ name, category, calories: Number(calories), protein: Number(protein || 0) })
     })
-        .then(response => response.json())
-        .then(data => {
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal menambahkan menu');
+            }
             document.getElementById('option_name').value = '';
             document.getElementById('option_calories').value = '';
-            alert(data.message || 'Menu berhasil ditambahkan');
+            document.getElementById('option_protein').value = '';
+            showPrompt(data.message || 'Menu berhasil ditambahkan');
             loadOptions(optionFilter.value || '');
             loadSummary();
         })
-        .catch(() => alert('Gagal menambahkan menu.'));
+        .catch(error => showPrompt(error.message || 'Gagal menambahkan menu.', 'error'));
 }
 
 function deleteOption(optionId) {
-    if (!confirm('Yakin ingin menghapus menu ini?')) return;
+    if (!window.confirm('Yakin ingin menghapus menu ini?')) return;
 
     fetch(`/api/options/${optionId}`, {
         method: 'DELETE'
     })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message || 'Menu dihapus');
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal menghapus menu');
+            }
+            showPrompt(data.message || 'Menu dihapus');
             loadOptions(optionFilter.value || '');
             loadDailyPlan();
             loadSummary();
         })
-        .catch(() => alert('Gagal menghapus menu.'));
+        .catch(error => showPrompt(error.message || 'Gagal menghapus menu.', 'error'));
 }
 
 function saveDailyPlan() {
@@ -184,19 +215,111 @@ function saveDailyPlan() {
     const checked = [...document.querySelectorAll('#menu_checklist input:checked')];
     const optionIds = checked.map(item => Number(item.value));
 
+    if (!date) {
+        showPrompt('Tanggal wajib dipilih sebelum menyimpan.', 'error');
+        return;
+    }
+
     fetch('/api/daily-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ day, date, option_ids: optionIds })
     })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message || 'Jadwal harian berhasil disimpan');
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal menyimpan jadwal harian');
+            }
+            showPrompt(data.message || 'Jadwal harian berhasil disimpan');
             loadDailyPlan();
             loadSummary();
             loadHistory();
         })
-        .catch(() => alert('Gagal menyimpan jadwal harian.'));
+        .catch(error => showPrompt(error.message || 'Gagal menyimpan jadwal harian.', 'error'));
+}
+
+function openPlanModal() {
+    const summary = document.getElementById('modal_plan_summary');
+    const list = document.getElementById('modal_plan_list');
+    const selectedDate = dateSelect.value || new Date().toISOString().split('T')[0];
+    const selectedDay = daySelect.value;
+
+    summary.textContent = `${selectedDay} • ${selectedDate}`;
+    list.innerHTML = '<div class="empty-state">Memuat menu...</div>';
+    if (planModal) {
+        planModal.classList.remove('hidden');
+        planModal.setAttribute('aria-hidden', 'false');
+    }
+
+    Promise.all([
+        fetch('/api/options').then(response => response.json()),
+        fetch(`/api/daily-plan?date=${encodeURIComponent(selectedDate)}`).then(response => response.json())
+    ])
+        .then(([options, selectedItems]) => {
+            const selectedIds = new Set((selectedItems || []).map(item => Number(item.option_id)));
+            list.innerHTML = '';
+
+            if (!options.length) {
+                list.innerHTML = '<div class="empty-state">Belum ada menu tersimpan.</div>';
+                return;
+            }
+
+            options.forEach(option => {
+                const item = document.createElement('label');
+                item.className = 'modal-plan-item';
+                item.innerHTML = `
+                    <div>
+                        <strong>${option.name}</strong>
+                        <div class="meta">${option.category} • ${option.calories} kcal</div>
+                    </div>
+                    <input type="checkbox" value="${option.id}" ${selectedIds.has(option.id) ? 'checked' : ''} />
+                `;
+                list.appendChild(item);
+            });
+        })
+        .catch(() => {
+            list.innerHTML = '<div class="empty-state">Gagal memuat menu untuk diedit.</div>';
+        });
+}
+
+function closePlanModal() {
+    if (planModal) {
+        planModal.classList.add('hidden');
+        planModal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function savePlanFromModal() {
+    const checked = [...document.querySelectorAll('#modal_plan_list input:checked')];
+    const optionIds = checked.map(item => Number(item.value));
+    const payload = {
+        day: daySelect.value,
+        date: dateSelect.value,
+        option_ids: optionIds
+    };
+
+    if (!payload.date) {
+        showPrompt('Tanggal wajib dipilih sebelum menyimpan.', 'error');
+        return;
+    }
+
+    fetch('/api/daily-plan', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal memperbarui menu');
+            }
+            showPrompt(data.message || 'Menu harian berhasil diperbarui');
+            closePlanModal();
+            loadDailyPlan();
+            loadSummary();
+            loadHistory();
+        })
+        .catch(error => showPrompt(error.message || 'Gagal memperbarui menu.', 'error'));
 }
 
 function clearDailyPlan() {
@@ -207,14 +330,17 @@ function clearDailyPlan() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ day, date })
     })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message || 'Jadwal dihapus');
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal menghapus jadwal harian');
+            }
+            showPrompt(data.message || 'Jadwal dihapus');
             loadDailyPlan();
             loadSummary();
             loadHistory();
         })
-        .catch(() => alert('Gagal menghapus jadwal harian.'));
+        .catch(error => showPrompt(error.message || 'Gagal menghapus jadwal harian.', 'error'));
 }
 
 function loadSummary() {
@@ -238,16 +364,16 @@ function renderTopbar(data) {
             <div class="value">${data.menu_count}</div>
         </div>
         <div class="stat-card">
-            <div class="label">Total Mingguan</div>
+            <div class="label">Total Kalori</div>
             <div class="value">${data.weekly_total} kcal</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Total Protein</div>
+            <div class="value">${data.weekly_protein ?? 0} g</div>
         </div>
         <div class="stat-card">
             <div class="label">Kategori</div>
             <div class="value">${data.categories.length}</div>
-        </div>
-        <div class="stat-card">
-            <div class="label">Hari Aktif</div>
-            <div class="value">${data.daily_totals.filter(item => item.count > 0).length}</div>
         </div>
     `;
 }
@@ -263,6 +389,7 @@ function renderWeeklySummary(dailyTotals) {
             <strong>${item.day}</strong>
             <div>${item.count} menu</div>
             <div>${item.total_calories} kcal</div>
+            <div>${item.total_protein ?? 0} g protein</div>
         `;
         summary.appendChild(card);
     });
@@ -289,7 +416,7 @@ function loadHistory() {
                         <span>${item.day}</span>
                     </div>
                     <div class="history-menu">${item.menu_names || 'Belum ada menu'}</div>
-                    <div class="history-meta">${item.item_count} menu • ${item.total_calories} kcal</div>
+                    <div class="history-meta">${item.item_count} menu • ${item.total_calories} kcal • ${item.total_protein ?? 0} g protein</div>
                 `;
                 list.appendChild(itemEl);
             });
@@ -327,8 +454,8 @@ function searchFoodReference() {
                         <div class="meta">${item.category} • ${item.portion}</div>
                     </div>
                     <div class="reference-actions">
-                        <div class="reference-calories">${item.calories} kcal</div>
-                        <button class="mini-primary" type="button" data-use-food="${item.name}|${item.calories}">Pakai</button>
+                        <div class="reference-calories">${item.calories} kcal • ${item.protein ?? 0} g</div>
+                        <button class="mini-primary" type="button" data-use-food="${item.name}|${item.calories}|${item.protein ?? 0}">Pakai</button>
                     </div>
                 `;
                 container.appendChild(row);
@@ -336,9 +463,10 @@ function searchFoodReference() {
 
             document.querySelectorAll('[data-use-food]').forEach(button => {
                 button.addEventListener('click', () => {
-                    const [name, calories] = button.dataset.useFood.split('|');
+                    const [name, calories, protein] = button.dataset.useFood.split('|');
                     document.getElementById('option_name').value = name;
                     document.getElementById('option_calories').value = calories;
+                    document.getElementById('option_protein').value = protein;
                     document.getElementById('option_category').value = foodCategoryFilter.value || 'Protein';
                     document.getElementById('option_name').focus();
                 });
@@ -395,6 +523,30 @@ function bindEvents() {
 
     if (addOptionBtn) {
         addOptionBtn.addEventListener('click', addOption);
+    }
+
+    if (editPlanBtn) {
+        editPlanBtn.addEventListener('click', openPlanModal);
+    }
+
+    if (closePlanModalBtn) {
+        closePlanModalBtn.addEventListener('click', closePlanModal);
+    }
+
+    if (closePlanModalSecondaryBtn) {
+        closePlanModalSecondaryBtn.addEventListener('click', closePlanModal);
+    }
+
+    if (savePlanModalBtn) {
+        savePlanModalBtn.addEventListener('click', savePlanFromModal);
+    }
+
+    if (planModal) {
+        planModal.addEventListener('click', event => {
+            if (event.target === planModal) {
+                closePlanModal();
+            }
+        });
     }
 }
 

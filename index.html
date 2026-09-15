@@ -10,6 +10,8 @@
     <div class="container">
         <div class="topbar" id="topbar"></div>
 
+        <div id="toast_container" class="toast-container"></div>
+
         <div class="main-grid">
             <div class="card">
                 <h2>🍱 Database Menu</h2>
@@ -30,8 +32,12 @@
                         </select>
                     </div>
                     <div>
+                        <label for="option_protein">Protein (gram)</label>
+                        <input id="option_protein" type="number" placeholder="Contoh: 35" min="0" />
+                    </div>
+                    <div>
                         <label for="option_calories">Kalori</label>
-                        <input id="option_calories" type="number" placeholder="Contoh: 480" />
+                        <input id="option_calories" type="number" placeholder="Contoh: 480" min="0" />
                     </div>
                     <button class="primary-btn" id="add_option_btn">Tambah Menu ke Database</button>
                 </div>
@@ -54,7 +60,7 @@
             </div>
 
             <div class="card">
-                <h2>📅 Planner Harian</h2>
+                <h2>📅 Planner Tanggal</h2>
                 <div class="planner-grid">
                     <div class="date-row">
                         <label for="date_select">Tanggal</label>
@@ -62,6 +68,7 @@
                     </div>
 
                     <div class="day-selector">
+                        <label for="day_select" style="margin: 0; font-size: 0.9rem; color: var(--muted);">Hari otomatis</label>
                         <select id="day_select">
                             <option value="Senin">Senin</option>
                             <option value="Selasa">Selasa</option>
@@ -71,17 +78,17 @@
                             <option value="Sabtu">Sabtu</option>
                             <option value="Minggu">Minggu</option>
                         </select>
-                        <button class="secondary-btn" onclick="loadDailyPlan()">Pilih Hari</button>
+                        <button class="secondary-btn" onclick="loadDailyPlan()">Pilih Tanggal</button>
                     </div>
 
                     <div id="menu_checklist" class="option-list"></div>
 
                     <div>
-                        <button class="primary-btn" onclick="saveDailyPlan()">Simpan Jadwal Hari Ini</button>
+                        <button class="primary-btn" type="button" id="edit_plan_btn">Edit Menu Tanggal Ini</button>
                     </div>
 
                     <div>
-                        <button class="danger-btn" onclick="clearDailyPlan()">Hapus Jadwal Hari Ini</button>
+                        <button class="danger-btn" type="button" onclick="clearDailyPlan()">Hapus Jadwal Tanggal Ini</button>
                     </div>
 
                     <div id="selected_plan" class="selected-list"></div>
@@ -121,6 +128,26 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js', v='2026-09-15-2') }}"></script>
+    <div id="plan_modal" class="modal-overlay hidden" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="plan_modal_title">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">Planner</p>
+                    <h3 id="plan_modal_title">Edit Menu per Tanggal</h3>
+                </div>
+                <button class="icon-close" type="button" id="close_plan_modal" aria-label="Tutup">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-summary" id="modal_plan_summary"></div>
+                <div id="modal_plan_list" class="modal-plan-list"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="secondary-btn" type="button" id="close_plan_modal_btn">Batal</button>
+                <button class="primary-btn" type="button" id="save_plan_modal_btn">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js', v='2026-09-15-3') }}"></script>
 </body>
 </html>
