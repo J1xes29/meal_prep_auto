@@ -72,13 +72,28 @@ function loadOptions(filterCategory = '') {
                 `;
                 list.appendChild(item);
             });
-
             attachDeleteHandlers();
             loadDailyPlan();
         })
         .catch(() => {
             document.getElementById('option_list').innerHTML = '<div class="empty-state">Gagal memuat menu.</div>';
         });
+}
+
+function updateNutritionEstimate(input) {
+    const grams = Number(input.value);
+    const row = input.closest('.reference-item');
+    const output = row?.querySelector('[data-nutrition-output]');
+    if (!output) return;
+
+    if (!Number.isFinite(grams) || grams <= 0) {
+        output.textContent = 'Masukkan gramasi lebih dari 0';
+        return;
+    }
+
+    const calories = Math.round(Number(input.dataset.caloriesPer100g) * grams / 10) / 10;
+    const protein = Math.round(Number(input.dataset.proteinPer100g) * grams / 10) / 10;
+    output.textContent = `${grams} g • ${calories} kcal • ${protein} g protein`;
 }
 
 function attachDeleteHandlers() {
@@ -352,7 +367,7 @@ function loadSummary() {
         })
         .catch(() => {
             document.getElementById('topbar').innerHTML = '';
-            document.getElementById('weekly_summary').innerHTML = '<div class="empty-state">Gagal memuat ringkasan mingguan.</div>';
+            document.getElementById('weekly_summary').innerHTML = '<div class="empty-state">Gagal memuat ringkasan tanggal.</div>';
         });
 }
 
@@ -378,6 +393,19 @@ function renderTopbar(data) {
     `;
 }
 
+function formatSummaryDate(dateString) {
+    if (!dateString) return 'Tanggal';
+
+    const date = new Date(`${dateString}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return dateString;
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    }).format(date);
+}
+
 function renderWeeklySummary(dailyTotals) {
     const summary = document.getElementById('weekly_summary');
     summary.innerHTML = '';
@@ -386,13 +414,67 @@ function renderWeeklySummary(dailyTotals) {
         const card = document.createElement('div');
         card.className = 'day-summary';
         card.innerHTML = `
-            <strong>${item.day}</strong>
+            <strong>${formatSummaryDate(item.day)}</strong>
             <div>${item.count} menu</div>
             <div>${item.total_calories} kcal</div>
             <div>${item.total_protein ?? 0} g protein</div>
         `;
         summary.appendChild(card);
     });
+}
+
+function formatHistoryTimestamp(value) {
+    if (!value) return 'Baru saja';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
+}
+
+function formatHistoryAction(action) {
+    if (!action) return 'Perubahan';
+
+    const map = {
+        updated: 'Diperbarui',
+        deleted: 'Dihapus',
+        created: 'Disimpan'
+    };
+
+    return map[action] || action;
+}
+
+function formatHistoryDetails(rawDetails) {
+    if (!rawDetails) return 'Tidak ada detail perubahan.';
+
+    try {
+        const parsed = typeof rawDetails === 'string' ? JSON.parse(rawDetails) : rawDetails;
+        if (!parsed || typeof parsed !== 'object') {
+            return String(rawDetails);
+        }
+
+        const menuNames = parsed.menu_names || parsed['menu_names'];
+        const itemCount = parsed.item_count ?? parsed['item_count'];
+        const action = parsed.action || parsed['action'];
+
+        if (action && menuNames) {
+            return `${formatHistoryAction(action)} • ${menuNames} (${itemCount || 0} menu)`;
+        }
+
+        if (menuNames) {
+            return menuNames;
+        }
+
+        return 'Tidak ada detail perubahan.';
+    } catch (error) {
+        return String(rawDetails).replace(/^\s*\{|\}\s*$/g, '').trim() || 'Tidak ada detail perubahan.';
+    }
 }
 
 function loadHistory() {
@@ -415,10 +497,49 @@ function loadHistory() {
                         <strong>${item.date}</strong>
                         <span>${item.day}</span>
                     </div>
+                    <div class="history-meta-row">
+                        <span class="history-action">${formatHistoryAction(item.action)}</span>
+                        <span>${formatHistoryTimestamp(item.created_at)}</span>
+                    </div>
                     <div class="history-menu">${item.menu_names || 'Belum ada menu'}</div>
                     <div class="history-meta">${item.item_count} menu • ${item.total_calories} kcal • ${item.total_protein ?? 0} g protein</div>
+                    <div class="history-details">${formatHistoryDetails(item.details)}</div>
+                    <div class="history-actions">
+                        <button class="mini-primary history-edit-btn" type="button" data-history-date="${item.date}">Edit</button>
+                        <button class="mini-danger history-delete-btn" type="button" data-history-id="${item.id}">Hapus</button>
+                    </div>
                 `;
                 list.appendChild(itemEl);
+            });
+
+            document.querySelectorAll('.history-edit-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetDate = button.dataset.historyDate;
+                    if (!targetDate) return;
+                    dateSelect.value = targetDate;
+                    syncDayFromDate();
+                    loadDailyPlan();
+                    openPlanModal();
+                });
+            });
+
+            document.querySelectorAll('.history-delete-btn').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const historyId = button.dataset.historyId;
+                    if (!historyId || !confirm('Hapus riwayat jadwal ini? Data jadwal tidak akan ikut terhapus.')) return;
+
+                    button.disabled = true;
+                    try {
+                        const response = await fetch(`/api/history/${historyId}`, { method: 'DELETE' });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.message || 'Gagal menghapus riwayat.');
+                        showToast(result.message || 'Riwayat berhasil dihapus.', 'success');
+                        loadHistory();
+                    } catch (error) {
+                        button.disabled = false;
+                        showToast(error.message, 'error');
+                    }
+                });
             });
         })
         .catch(() => {
@@ -448,17 +569,27 @@ function searchFoodReference() {
             data.forEach(item => {
                 const row = document.createElement('div');
                 row.className = 'reference-item';
+                const caloriesPer100g = Number(item.calories_per_100g ?? item.calories ?? 0);
+                const proteinPer100g = Number(item.protein_per_100g ?? item.protein ?? 0);
                 row.innerHTML = `
                     <div>
                         <strong>${item.name}</strong>
-                        <div class="meta">${item.category} • ${item.portion}</div>
+                        <div class="meta">${item.category} • basis ${caloriesPer100g} kcal • ${proteinPer100g} g protein per 100 g</div>
                     </div>
                     <div class="reference-actions">
-                        <div class="reference-calories">${item.calories} kcal • ${item.protein ?? 0} g</div>
-                        <button class="mini-primary" type="button" data-use-food="${item.name}|${item.calories}|${item.protein ?? 0}">Pakai</button>
+                        <label class="grams-control">
+                            <span>Gram</span>
+                            <input class="food-grams-input" type="number" min="0.1" max="100000" step="0.1" value="100" data-calories-per-100g="${caloriesPer100g}" data-protein-per-100g="${proteinPer100g}" />
+                        </label>
+                        <div class="reference-calories" data-nutrition-output>100 g • ${caloriesPer100g} kcal • ${proteinPer100g} g protein</div>
+                        <button class="mini-primary" type="button" data-use-food="${item.name}|${caloriesPer100g}|${proteinPer100g}">Pakai</button>
                     </div>
                 `;
                 container.appendChild(row);
+            });
+
+            container.querySelectorAll('.food-grams-input').forEach(input => {
+                input.addEventListener('input', () => updateNutritionEstimate(input));
             });
 
             document.querySelectorAll('[data-use-food]').forEach(button => {

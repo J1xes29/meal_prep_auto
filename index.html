@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meal Planner Pro</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='2026-09-15-1') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='2026-09-15-2') }}" />
 </head>
 <body>
     <div class="container">
@@ -98,7 +98,7 @@
         </div>
 
         <div class="card">
-            <h3>📊 Ringkasan Mingguan</h3>
+            <h3>� Ringkasan Tanggal</h3>
             <div id="weekly_summary" class="summary-grid"></div>
         </div>
 
@@ -108,7 +108,7 @@
         </div>
 
         <div class="card">
-            <h3>🥗 Estimasi Kalori Makanan</h3>
+            <h3>🥗 Estimasi Nutrisi Berdasarkan Gramasi</h3>
             <div class="food-search-box">
                 <div class="search-row">
                     <input id="food_search" type="text" placeholder="Cari makanan seperti ayam, nasi, telur..." />
@@ -121,9 +121,10 @@
                         <option value="Minuman">Minuman</option>
                         <option value="Lainnya">Lainnya</option>
                     </select>
-                    <button class="secondary-btn" id="food_search_btn" type="button">Cari Kalori</button>
+                    <button class="secondary-btn" id="food_search_btn" type="button">Cari Makanan</button>
                 </div>
             </div>
+            <p class="helper-text">Masukkan berat makanan dalam gram untuk melihat estimasi kalori dan protein.</p>
             <div id="food_reference_results" class="food-reference-results"></div>
         </div>
     </div>
@@ -148,6 +149,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js', v='2026-09-15-3') }}"></script>
+    <script src="{{ url_for('static', filename='app.js', v='2026-09-15-4') }}"></script>
 </body>
 </html>
