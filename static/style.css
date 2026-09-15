@@ -262,6 +262,24 @@ button:hover {
     flex: 1;
 }
 
+.toolbar-row {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+    margin-bottom: 12px;
+}
+
+.toolbar-row label {
+    margin-bottom: 0;
+}
+
+.search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(120px, 1fr));
@@ -314,6 +332,102 @@ button:hover {
     color: #176a4c;
 }
 
+.date-row {
+    display: grid;
+    gap: 8px;
+}
+
+.date-row label {
+    margin-bottom: 0;
+}
+
+.food-search-box {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.food-reference-results {
+    display: grid;
+    gap: 10px;
+}
+
+.reference-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+}
+
+.reference-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.reference-calories {
+    font-weight: 800;
+    color: var(--primary-dark);
+    white-space: nowrap;
+}
+
+.mini-primary {
+    padding: 8px 12px;
+    width: auto;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.history-card {
+    margin-top: 8px;
+}
+
+.history-list {
+    display: grid;
+    gap: 12px;
+}
+
+.history-item {
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.history-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.history-head strong {
+    font-size: 1rem;
+}
+
+.history-head span,
+.history-meta {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.history-menu {
+    font-size: 0.96rem;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
 .empty-state {
     padding: 18px 14px;
     border: 1px dashed #ccd8e5;
@@ -347,13 +461,19 @@ button:hover {
     }
 
     .option-item,
-    .selected-item {
+    .selected-item,
+    .reference-item {
         align-items: flex-start;
         flex-direction: column;
     }
 
-    .option-actions {
+    .option-actions,
+    .reference-actions {
         width: 100%;
         justify-content: flex-end;
+    }
+
+    .search-row {
+        grid-template-columns: 1fr;
     }
 }

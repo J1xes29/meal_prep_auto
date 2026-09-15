@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meal Planner Pro</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='2026-09-15-1') }}" />
 </head>
 <body>
     <div class="container">
@@ -33,7 +33,21 @@
                         <label for="option_calories">Kalori</label>
                         <input id="option_calories" type="number" placeholder="Contoh: 480" />
                     </div>
-                    <button class="primary-btn" onclick="addOption()">Tambah Menu ke Database</button>
+                    <button class="primary-btn" id="add_option_btn">Tambah Menu ke Database</button>
+                </div>
+
+                <div class="toolbar-row">
+                    <label for="option_filter">Filter Kategori</label>
+                    <select id="option_filter">
+                        <option value="">Semua</option>
+                        <option value="Protein">Protein</option>
+                        <option value="Karbohidrat">Karbohidrat</option>
+                        <option value="Sayur">Sayur</option>
+                        <option value="Camilan">Camilan</option>
+                        <option value="Minuman">Minuman</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                    <button class="secondary-btn" id="option_filter_btn" type="button">Terapkan</button>
                 </div>
 
                 <div id="option_list" class="option-list"></div>
@@ -42,6 +56,11 @@
             <div class="card">
                 <h2>📅 Planner Harian</h2>
                 <div class="planner-grid">
+                    <div class="date-row">
+                        <label for="date_select">Tanggal</label>
+                        <input id="date_select" type="date" />
+                    </div>
+
                     <div class="day-selector">
                         <select id="day_select">
                             <option value="Senin">Senin</option>
@@ -75,245 +94,33 @@
             <h3>📊 Ringkasan Mingguan</h3>
             <div id="weekly_summary" class="summary-grid"></div>
         </div>
+
+        <div class="card history-card">
+            <h3>🗂️ Riwayat Jadwal</h3>
+            <div id="history_list" class="history-list"></div>
+        </div>
+
+        <div class="card">
+            <h3>🥗 Estimasi Kalori Makanan</h3>
+            <div class="food-search-box">
+                <div class="search-row">
+                    <input id="food_search" type="text" placeholder="Cari makanan seperti ayam, nasi, telur..." />
+                    <select id="food_category_filter">
+                        <option value="">Semua Kategori</option>
+                        <option value="Protein">Protein</option>
+                        <option value="Karbohidrat">Karbohidrat</option>
+                        <option value="Sayur">Sayur</option>
+                        <option value="Buah">Buah</option>
+                        <option value="Minuman">Minuman</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                    <button class="secondary-btn" id="food_search_btn" type="button">Cari Kalori</button>
+                </div>
+            </div>
+            <div id="food_reference_results" class="food-reference-results"></div>
+        </div>
     </div>
 
-    <script>
-        const daySelect = document.getElementById('day_select');
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadOptions();
-            loadDailyPlan();
-            loadSummary();
-        });
-
-        function loadOptions() {
-            fetch('/api/options')
-                .then(response => response.json())
-                .then(data => {
-                    const list = document.getElementById('option_list');
-                    list.innerHTML = '';
-
-                    if (!data.length) {
-                        list.innerHTML = '<div class="empty-state">Belum ada menu tersimpan.</div>';
-                        return;
-                    }
-
-                    data.forEach(option => {
-                        const item = document.createElement('div');
-                        item.className = 'option-item';
-                        item.innerHTML = `
-                            <div>
-                                <strong>${option.name}</strong>
-                                <div class="meta">${option.category} • ${option.calories} kcal</div>
-                            </div>
-                            <div class="option-actions">
-                                <button class="mini-btn" title="Hapus menu" onclick="deleteOption(${option.id})">×</button>
-                            </div>
-                        `;
-                        list.appendChild(item);
-                    });
-
-                    loadDailyPlan();
-                })
-                .catch(() => {
-                    document.getElementById('option_list').innerHTML = '<div class="empty-state">Gagal memuat menu.</div>';
-                });
-        }
-
-        function loadDailyPlan() {
-            const day = daySelect.value;
-            fetch(`/api/daily-plan?day=${encodeURIComponent(day)}`)
-                .then(response => response.json())
-                .then(data => {
-                    renderMenuChecklist(data);
-                    renderSelectedPlan(data);
-                })
-                .catch(() => {
-                    renderMenuChecklist([]);
-                    renderSelectedPlan([]);
-                });
-        }
-
-        function renderMenuChecklist(selectedItems = []) {
-            const selectedIds = new Set(selectedItems.map(item => item.option_id));
-            fetch('/api/options')
-                .then(response => response.json())
-                .then(options => {
-                    const list = document.getElementById('menu_checklist');
-                    list.innerHTML = '';
-
-                    if (!options.length) {
-                        list.innerHTML = '<div class="empty-state">Tambahkan menu dulu di database.</div>';
-                        return;
-                    }
-
-                    options.forEach(option => {
-                        const wrapper = document.createElement('label');
-                        wrapper.className = 'option-item';
-                        wrapper.innerHTML = `
-                            <div>
-                                <strong>${option.name}</strong>
-                                <div class="meta">${option.category} • ${option.calories} kcal</div>
-                            </div>
-                            <input type="checkbox" value="${option.id}" ${selectedIds.has(option.id) ? 'checked' : ''} />
-                        `;
-                        list.appendChild(wrapper);
-                    });
-                });
-        }
-
-        function renderSelectedPlan(items) {
-            const container = document.getElementById('selected_plan');
-            container.innerHTML = '';
-
-            if (!items.length) {
-                container.innerHTML = '<div class="empty-state">Belum ada menu yang dipilih untuk hari ini.</div>';
-                document.getElementById('total_box').textContent = 'Total Kalori: 0 kcal';
-                return;
-            }
-
-            let total = 0;
-            items.forEach(item => {
-                total += Number(item.calories || 0);
-                const node = document.createElement('div');
-                node.className = 'selected-item';
-                node.innerHTML = `
-                    <span>${item.name}</span>
-                    <strong>${item.calories} kcal</strong>
-                `;
-                container.appendChild(node);
-            });
-
-            document.getElementById('total_box').textContent = `Total Kalori: ${total} kcal`;
-        }
-
-        function addOption() {
-            const name = document.getElementById('option_name').value.trim();
-            const category = document.getElementById('option_category').value.trim();
-            const calories = document.getElementById('option_calories').value;
-
-            if (!name || !calories) {
-                alert('Nama menu dan kalori wajib diisi!');
-                return;
-            }
-
-            fetch('/api/options', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, category, calories: Number(calories) })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('option_name').value = '';
-                document.getElementById('option_calories').value = '';
-                alert(data.message || 'Menu berhasil ditambahkan');
-                loadOptions();
-                loadSummary();
-            })
-            .catch(() => alert('Gagal menambahkan menu.'));
-        }
-
-        function deleteOption(optionId) {
-            if (!confirm('Yakin ingin menghapus menu ini?')) return;
-
-            fetch(`/api/options/${optionId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message || 'Menu dihapus');
-                loadOptions();
-                loadDailyPlan();
-                loadSummary();
-            })
-            .catch(() => alert('Gagal menghapus menu.'));
-        }
-
-        function saveDailyPlan() {
-            const day = daySelect.value;
-            const checked = [...document.querySelectorAll('#menu_checklist input:checked')];
-            const optionIds = checked.map(item => Number(item.value));
-
-            fetch('/api/daily-plan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ day, option_ids: optionIds })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message || 'Jadwal harian berhasil disimpan');
-                loadDailyPlan();
-                loadSummary();
-            })
-            .catch(() => alert('Gagal menyimpan jadwal harian.'));
-        }
-
-        function clearDailyPlan() {
-            const day = daySelect.value;
-            fetch('/api/daily-plan', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ day })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message || 'Jadwal dihapus');
-                loadDailyPlan();
-                loadSummary();
-            })
-            .catch(() => alert('Gagal menghapus jadwal harian.'));
-        }
-
-        function loadSummary() {
-            fetch('/api/summary')
-                .then(response => response.json())
-                .then(data => {
-                    renderTopbar(data);
-                    renderWeeklySummary(data.daily_totals);
-                })
-                .catch(() => {
-                    document.getElementById('topbar').innerHTML = '';
-                    document.getElementById('weekly_summary').innerHTML = '<div class="empty-state">Gagal memuat ringkasan mingguan.</div>';
-                });
-        }
-
-        function renderTopbar(data) {
-            const topbar = document.getElementById('topbar');
-            topbar.innerHTML = `
-                <div class="stat-card">
-                    <div class="label">Menu</div>
-                    <div class="value">${data.menu_count}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Total Mingguan</div>
-                    <div class="value">${data.weekly_total} kcal</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Kategori</div>
-                    <div class="value">${data.categories.length}</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Hari Aktif</div>
-                    <div class="value">${data.daily_totals.filter(item => item.count > 0).length}</div>
-                </div>
-            `;
-        }
-
-        function renderWeeklySummary(dailyTotals) {
-            const summary = document.getElementById('weekly_summary');
-            summary.innerHTML = '';
-
-            dailyTotals.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'day-summary';
-                card.innerHTML = `
-                    <strong>${item.day}</strong>
-                    <div>${item.count} menu</div>
-                    <div>${item.total_calories} kcal</div>
-                `;
-                summary.appendChild(card);
-            });
-        }
-    </script>
+    <script src="{{ url_for('static', filename='app.js', v='2026-09-15-2') }}"></script>
 </body>
 </html>
